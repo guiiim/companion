@@ -2,8 +2,6 @@
 
 Um companheiro robótico de mesa com **olhos animados em um display colorido**, que percebe quando alguém chega ou se aproxima, **obedece a comandos de voz em português**, responde com **sons de robô** e toca **músicas em ordem aleatória**, mostrando o nome do arquivo abaixo dos olhos.
 
-> **Status:** projeto em fase de planejamento. Este documento descreve a proposta, a lista de componentes, as ligações e o plano de execução.
-
 ## Funcionalidades
 
 - **Olhos expressivos** em display IPS colorido, com piscadas, olhar ao redor e humores (feliz, bravo, triste, surpreso, sonolento, dormindo).
@@ -26,9 +24,6 @@ Um companheiro robótico de mesa com **olhos animados em um display colorido**, 
 | Sensor PIR (AM312 ou HC-SR501) | Chegada de pessoas e modo sono | AM312 usa 3,3 V; HC-SR501 usa 5 V |
 | Capacitor eletrolítico 470 a 1000 µF / 10 V | Estabiliza a alimentação do amplificador | Entre VIN e GND do MAX98357A |
 | Fonte USB 5 V / 2 A | Alimentação | O áudio tem picos de corrente |
-| Jumpers, protoboard e caixa | Montagem | Impressa em 3D ou de papelão |
-
-Opcional: módulo RTC DS3231, para um relógio independente de Wi-Fi.
 
 ## Diagrama de blocos
 
@@ -41,36 +36,6 @@ Opcional: módulo RTC DS3231, para um relógio independente de Wi-Fi.
                         └─────────────────────┘
                               USB 5V / 2A
 ```
-
-## Ligações
-
-Nos modelos com PSRAM octal, os pinos GPIO26 a 37 são usados internamente. Os pinos abaixo evitam essa faixa e os pinos de boot. Os números são uma sugestão: **confira o pinout da sua placa antes de soldar**.
-
-| Componente | Pino do módulo | GPIO do ESP32-S3 |
-|---|---|---|
-| ST7789 | VCC / GND | 3V3 / GND |
-| | SCL (SCK) | GPIO12 |
-| | SDA (MOSI) | GPIO11 |
-| | DC | GPIO9 |
-| | RES | GPIO8 |
-| | BLK (backlight) | GPIO7 (PWM, controla o brilho) |
-| | CS | sem ligação (`TFT_CS = -1`), se o módulo não tiver |
-| INMP441 | VDD / GND | 3V3 / GND |
-| | SCK | GPIO15 |
-| | WS | GPIO16 |
-| | SD | GPIO17 |
-| | L/R | GND |
-| MAX98357A | VIN / GND | 5V / GND (com capacitor) |
-| | BCLK | GPIO18 |
-| | LRC | GPIO21 |
-| | DIN | GPIO47 |
-| | SD / GAIN | livres (SD aberto = ligado) |
-| | Saída + / − | Alto-falante |
-| VL53L0X | VIN / GND | 3V3 / GND |
-| | SDA | GPIO4 |
-| | SCL | GPIO5 |
-| PIR | OUT | GPIO6 |
-| | VCC / GND | 5V (HC-SR501) ou 3V3 (AM312) / GND |
 
 ## Sensores de presença
 
@@ -162,8 +127,6 @@ O companheiro não fala: ele usa apenas **sons de robô**, gerados por código n
 | Carinho | Ronronar: tom grave com vibração |
 | "Volume mais" / "Volume menos" | Bip no novo volume |
 
-Também é possível tocar sons de robô criados em um editor de áudio. Salve-os como WAV mono de 16 bits (a 16 kHz, cerca de 32 KB por segundo) na memória flash (LittleFS) e toque-os pelo MAX98357A com a biblioteca [ESP32-audioI2S](https://github.com/schreibfaul1/ESP32-audioI2S).
-
 ## Música
 
 Ao ouvir "música", o companheiro toca todos os MP3 guardados na memória flash, em ordem aleatória, até receber o comando "parar" ou o gesto de carinho.
@@ -180,7 +143,7 @@ Ao ouvir "música", o companheiro toca todos os MP3 guardados na memória flash,
 
 ## Software
 
-- **Ambiente:** Arduino IDE ou PlatformIO.
+- **Ambiente:** Arduino IDE.
 - **Gráficos:** LovyanGFX ou TFT_eSPI.
 - **Áudio:** ESP32-audioI2S para reprodução e o driver I2S do ESP-IDF (`driver/i2s.h` ou `i2s_std.h`) para capturar o microfone.
 - **Voz:** modelo de palavras-chave treinado no Edge Impulse.
@@ -195,15 +158,6 @@ O ESP32-S3 tem dois núcleos:
 
 As tarefas se comunicam por filas do FreeRTOS: a tarefa de voz envia o comando reconhecido e a de interface reage a ele. Durante a música, o decodificador de MP3 e o modelo de voz rodam ao mesmo tempo, então é preciso testar o desempenho e ajustar a distribuição entre os núcleos se houver falhas no reconhecimento ou na animação.
 
-## Cuidados de montagem
-
-- Microfone longe do alto-falante e, de preferência, voltado para a frente com um furo próprio.
-- VL53L0X na frente, atrás de uma pequena janela, sem tampar o feixe e longe de luz solar direta.
-- PIR com a cúpula para fora, ou com a abertura da caixa coberta por plástico fino.
-- Alimente tudo pela mesma fonte e mantenha o GND em comum. Se ouvir estalos, aumente o capacitor.
-- Use fonte USB de 5 V / 2 A, por causa dos picos de corrente do áudio.
-- Evite os pinos de boot (GPIO0, 3, 45 e 46 no S3) para periféricos.
-- Para uso portátil, dá para usar uma bateria 18650 com módulo TP4056, lembrando que o consumo com Wi-Fi e áudio é alto.
 
 ## Plano de execução
 
@@ -214,15 +168,3 @@ As tarefas se comunicam por filas do FreeRTOS: a tarefa de voz envia o comando r
 | 3. Som | MAX98357A com os efeitos de cada estado |
 | 4. Música | MP3 na memória flash, reprodução aleatória, parada por carinho e nome do arquivo no visor, testados por comando pela porta serial |
 | 5. Voz | Captura do INMP441, detecção de volume (palmas) e depois o modelo de comandos, incluindo "música" e "parar" |
-
-A voz fica por último, porque é a fase que mais exige ajuste. Nas fases 1 a 4, use comandos simulados pela porta serial para testar tudo sem o microfone.
-
-## Próximos passos
-
-- [ ] Gravar de 50 a 100 amostras de cada comando em português e treinar o modelo no Edge Impulse.
-- [ ] Confirmar o pinout exato da placa ESP32-S3 adquirida.
-- [ ] Implementar as fases 1 a 4 (olhos coloridos, relógio, sensores, sons e música, com fila de comandos pronta para a voz).
-
-## Licença
-
-Defina a licença do projeto (por exemplo, MIT) e adicione o arquivo `LICENSE` ao repositório.
